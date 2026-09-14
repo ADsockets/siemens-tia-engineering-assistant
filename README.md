@@ -121,7 +121,7 @@ La carpeta `skill/siemens-tia-engineering-assistant` contiene la fuente instalab
 powershell -ExecutionPolicy Bypass -File .\scripts\instalar-siemens-tia-scl.ps1 -Force
 ```
 
-El instalador debe ejecutarse únicamente después de revisar el contenido y la ruta de destino. La skill instalada queda fuera de este repositorio, en la carpeta de skills de Codex.
+El instalador debe ejecutarse únicamente después de revisar el contenido y la ruta de destino. La skill instalada queda fuera de este repositorio, en la carpeta de skills configurada por el usuario.
 
 ## Estructura del repositorio
 
@@ -136,7 +136,7 @@ El instalador debe ejecutarse únicamente después de revisar el contenido y la 
 ├── CONTRIBUTING.md
 ├── SECURITY.md
 ├── CHANGELOG.md
-├── AGENTS.md
+├── LICENSE
 └── .gitignore
 ```
 
@@ -153,8 +153,8 @@ Consulta [SECURITY.md](SECURITY.md) antes de reportar una vulnerabilidad o prepa
 
 ## Estado del proyecto
 
-Versión inicial comunitaria en preparación. La skill está enfocada en análisis, estructuración, diagramas y generación SCL validada; cualquier conector MCP con TIA Portal se mantiene como proyecto separado.
+Versión comunitaria inicial. La skill está enfocada en análisis, estructuración, diagramas y generación SCL validada; cualquier conector MCP con TIA Portal se mantiene como proyecto separado.
 
 ## Licencia
 
-La licencia pública se seleccionará antes de hacer el repositorio público. No se debe añadir una licencia ni redistribuir el repositorio hasta confirmar que todos los archivos son originales o tienen autorización compatible.
+Este proyecto se distribuye bajo la licencia MIT. Consulta [LICENSE](LICENSE) para conocer los términos completos.

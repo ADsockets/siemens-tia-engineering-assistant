@@ -20,7 +20,7 @@
 - [ ] El `git diff` fue revisado manualmente.
 - [ ] El árbol de trabajo no contiene archivos no rastreados inesperados.
 - [ ] `main` está protegido en GitHub.
-- [ ] La licencia seleccionada corresponde a todos los archivos publicados.
+- [ ] El archivo `LICENSE` contiene la licencia MIT aprobada.
 - [ ] La etiqueta de versión y el changelog están actualizados.
 
 ## Validación
