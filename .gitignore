@@ -1,0 +1,44 @@
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.key
+*.crt
+*.cer
+
+# Construcción y pruebas
+bin/
+obj/
+TestResults/
+coverage/
+artifacts/
+*.user
+*.suo
+
+# Proyectos y exportaciones TIA Portal: nunca versionar proyectos reales
+*.ap*
+*.zap*
+*.als*
+*.s7p
+*.s7dcl
+*.s7res
+*.db
+*.plf
+*.idx
+*.cfs
+*.pma*
+TIAProjectTexts.*
+
+# Binarios y paquetes de Siemens
+*.dll
+*.exe
+*.msi
+*.zip

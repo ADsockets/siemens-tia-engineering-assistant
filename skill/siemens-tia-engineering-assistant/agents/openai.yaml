@@ -1,0 +1,7 @@
+interface:
+  display_name: "Siemens TIA Engineering"
+  short_description: "Aclara, analiza TIA y genera SCL validado"
+  default_prompt: "Usa $siemens-tia-engineering-assistant para aclarar y analizar este proyecto Siemens antes de generar SCL."
+
+policy:
+  allow_implicit_invocation: true
