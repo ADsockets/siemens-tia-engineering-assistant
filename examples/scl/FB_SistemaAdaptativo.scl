@@ -1,0 +1,293 @@
+FUNCTION_BLOCK "FB_SistemaAdaptativo"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+VAR_INPUT
+    // Habilitacion y proteccion externa
+    EnableAuto                 : BOOL;
+    ResetRequest               : BOOL;
+    CriticalProtectionActive   : BOOL;
+
+    // Variables de proceso de la primera etapa
+    CurrentFilteredA           : REAL;
+    FrequencyActualHz          : REAL;
+
+    // Perfil funcional minimo del producto
+    CurrentMinA                : REAL;
+    CurrentQ3MaxA              : REAL;
+    CurrentQ5EnterA            : REAL;
+    FrequencyTargetHz          : REAL;
+
+    // Limites y sintonia de ingenieria. No deben exponerse como receta diaria.
+    FrequencyMinHz             : REAL;
+    FrequencyMaxHz             : REAL;
+    StepQ2Hz                   : REAL;
+    StepQ4Hz                   : REAL;
+    StepQ5Hz                   : REAL;
+    CurrentHysteresisA         : REAL;
+    FrequencyTargetToleranceHz : REAL;
+    ObserveTime                : TIME;
+    StableConfirmTime          : TIME;
+    ExitConfirmTime            : TIME;
+    Q4ConfirmTime              : TIME;
+    Q5ConfirmTime              : TIME;
+    RecoveryConfirmTime        : TIME;
+END_VAR
+
+VAR_OUTPUT
+    FrequencyCommandHz         : REAL;
+    CommandValid               : BOOL;
+    StateCode                  : USINT;
+    CurrentPercent             : REAL;
+    Q1Q2LimitA                 : REAL;
+    Q2Q3LimitA                 : REAL;
+    IsStable                   : BOOL;
+    IsTargetSearchActive       : BOOL;
+    IsRecoveryActive           : BOOL;
+    ConfigValid                : BOOL;
+    ProtectionInhibit          : BOOL;
+    TransitionReasonCode       : USINT;
+END_VAR
+
+VAR
+    StateInternal              : USINT;
+    PreviousEnableAuto         : BOOL;
+    PreviousResetRequest       : BOOL;
+    WaitForObservation         : BOOL;
+    FrequencyCommandInternal   : REAL;
+    LastStableFrequencyHz      : REAL;
+
+    ObservationTimer           : TON_TIME;
+    StableTimer                : TON_TIME;
+    ExitLowTimer               : TON_TIME;
+    Q4Timer                    : TON_TIME;
+    Q5Timer                    : TON_TIME;
+    Q4RecoveryTimer            : TON_TIME;
+    Q5ExitTimer                : TON_TIME;
+END_VAR
+
+VAR_TEMP
+    TargetDifferenceHz         : REAL;
+    InQ3Band                   : BOOL;
+    CanAdjust                  : BOOL;
+END_VAR
+
+BEGIN
+    // La corriente ideal de Q3 genera los limites inferiores por proporcion.
+    #Q1Q2LimitA := #CurrentQ3MaxA / 3.0;
+    #Q2Q3LimitA := (#CurrentQ3MaxA * 2.0) / 3.0;
+
+    #ConfigValid := (#CurrentMinA >= 0.0) AND
+                    (#CurrentQ3MaxA > 0.0) AND
+                    (#CurrentMinA < #Q1Q2LimitA) AND
+                    (#Q1Q2LimitA < #Q2Q3LimitA) AND
+                    (#Q2Q3LimitA < #CurrentQ3MaxA) AND
+                    (#CurrentQ3MaxA < #CurrentQ5EnterA) AND
+                    (#FrequencyMinHz >= 0.0) AND
+                    (#FrequencyMinHz < #FrequencyMaxHz) AND
+                    (#FrequencyTargetHz >= #FrequencyMinHz) AND
+                    (#FrequencyTargetHz <= #FrequencyMaxHz) AND
+                    (#StepQ2Hz > 0.0) AND
+                    (#StepQ4Hz > 0.0) AND
+                    (#StepQ5Hz > 0.0) AND
+                    (#CurrentHysteresisA >= 0.0) AND
+                    ((#CurrentQ3MaxA + #CurrentHysteresisA) < #CurrentQ5EnterA) AND
+                    (#FrequencyTargetToleranceHz >= 0.0) AND
+                    (#ObserveTime > T#0s) AND
+                    (#StableConfirmTime > T#0s) AND
+                    (#ExitConfirmTime > T#0s) AND
+                    (#Q4ConfirmTime > T#0s) AND
+                    (#Q5ConfirmTime > T#0s) AND
+                    (#RecoveryConfirmTime > T#0s);
+
+    IF #CurrentQ3MaxA > 0.0 THEN
+        #CurrentPercent := (#CurrentFilteredA * 100.0) / #CurrentQ3MaxA;
+    ELSE
+        #CurrentPercent := 0.0;
+    END_IF;
+
+    #InQ3Band := (#CurrentFilteredA >= #Q2Q3LimitA) AND
+                 (#CurrentFilteredA <= #CurrentQ3MaxA);
+
+    IF #ConfigValid THEN
+        #ObservationTimer(IN := #WaitForObservation,
+                          PT := #ObserveTime);
+        #StableTimer(IN := #InQ3Band,
+                     PT := #StableConfirmTime);
+        #ExitLowTimer(IN := #CurrentFilteredA < (#Q2Q3LimitA - #CurrentHysteresisA),
+                      PT := #ExitConfirmTime);
+        #Q4Timer(IN := (#CurrentFilteredA > (#CurrentQ3MaxA + #CurrentHysteresisA)) AND
+                       (#CurrentFilteredA < #CurrentQ5EnterA),
+                 PT := #Q4ConfirmTime);
+        #Q5Timer(IN := #CurrentFilteredA >= #CurrentQ5EnterA,
+                 PT := #Q5ConfirmTime);
+        #Q4RecoveryTimer(IN := #CurrentFilteredA <= #CurrentQ3MaxA,
+                         PT := #RecoveryConfirmTime);
+        #Q5ExitTimer(IN := #CurrentFilteredA < (#CurrentQ5EnterA - #CurrentHysteresisA),
+                     PT := #RecoveryConfirmTime);
+    ELSE
+        #ObservationTimer(IN := FALSE, PT := T#0s);
+        #StableTimer(IN := FALSE, PT := T#0s);
+        #ExitLowTimer(IN := FALSE, PT := T#0s);
+        #Q4Timer(IN := FALSE, PT := T#0s);
+        #Q5Timer(IN := FALSE, PT := T#0s);
+        #Q4RecoveryTimer(IN := FALSE, PT := T#0s);
+        #Q5ExitTimer(IN := FALSE, PT := T#0s);
+    END_IF;
+
+    IF #ObservationTimer.Q THEN
+        #WaitForObservation := FALSE;
+    END_IF;
+
+    #CanAdjust := NOT #WaitForObservation;
+
+    #TargetDifferenceHz := #FrequencyTargetHz - #FrequencyCommandInternal;
+    IF #TargetDifferenceHz < 0.0 THEN
+        #TargetDifferenceHz := -#TargetDifferenceHz;
+    END_IF;
+
+    #CommandValid := FALSE;
+    #ProtectionInhibit := FALSE;
+
+    // Reset por flanco: conserva la frecuencia real como punto de partida.
+    IF #ResetRequest AND NOT #PreviousResetRequest THEN
+        #FrequencyCommandInternal := #FrequencyActualHz;
+        #LastStableFrequencyHz := #FrequencyActualHz;
+        #StateInternal := 0;
+        #WaitForObservation := FALSE;
+        #TransitionReasonCode := 1;
+    END_IF;
+
+    IF NOT #EnableAuto THEN
+        #StateInternal := 0;
+        #FrequencyCommandInternal := #FrequencyActualHz;
+        #WaitForObservation := FALSE;
+        #TransitionReasonCode := 0;
+
+    ELSIF #CriticalProtectionActive THEN
+        #StateInternal := 250;
+        #ProtectionInhibit := TRUE;
+        #WaitForObservation := FALSE;
+        #TransitionReasonCode := 8;
+
+    ELSIF NOT #ConfigValid THEN
+        #StateInternal := 251;
+        #WaitForObservation := FALSE;
+        #TransitionReasonCode := 9;
+
+    ELSE
+        #CommandValid := TRUE;
+
+        // Al habilitar automatico, el bloque empieza desde la frecuencia aplicada.
+        IF #EnableAuto AND NOT #PreviousEnableAuto THEN
+            #FrequencyCommandInternal := #FrequencyActualHz;
+            #LastStableFrequencyHz := #FrequencyActualHz;
+            #StateInternal := 1;
+            #WaitForObservation := FALSE;
+            #TransitionReasonCode := 1;
+        END_IF;
+
+        IF #StateInternal = 0 THEN
+            #StateInternal := 1;
+        END_IF;
+
+        // Las sobrecargas tienen prioridad sobre la busqueda normal de frecuencia.
+        IF #Q5Timer.Q THEN
+            #StateInternal := 5;
+            #TransitionReasonCode := 6;
+        ELSIF #Q4Timer.Q THEN
+            #StateInternal := 4;
+            #TransitionReasonCode := 5;
+        ELSIF #CurrentFilteredA < #Q1Q2LimitA THEN
+            #StateInternal := 1;
+        END_IF;
+
+        CASE #StateInternal OF
+            1: // Q1: recuperacion inicial de corriente baja.
+                IF #CurrentFilteredA >= #Q1Q2LimitA THEN
+                    #StateInternal := 2;
+                    #TransitionReasonCode := 2;
+                ELSIF #CanAdjust THEN
+                    #FrequencyCommandInternal := #FrequencyCommandInternal - #StepQ2Hz;
+                    #WaitForObservation := TRUE;
+                    #TransitionReasonCode := 2;
+                END_IF;
+
+            2: // Q2: correccion local y aproximacion hacia la frecuencia objetivo.
+                IF #CurrentFilteredA < #Q2Q3LimitA THEN
+                    IF #CanAdjust THEN
+                        #FrequencyCommandInternal := #FrequencyCommandInternal - #StepQ2Hz;
+                        #WaitForObservation := TRUE;
+                        #TransitionReasonCode := 2;
+                    END_IF;
+                ELSIF #InQ3Band THEN
+                    IF #TargetDifferenceHz > #FrequencyTargetToleranceHz THEN
+                        IF #CanAdjust THEN
+                            IF #FrequencyCommandInternal < #FrequencyTargetHz THEN
+                                #FrequencyCommandInternal := #FrequencyCommandInternal + #StepQ2Hz;
+                            ELSE
+                                #FrequencyCommandInternal := #FrequencyCommandInternal - #StepQ2Hz;
+                            END_IF;
+                            #WaitForObservation := TRUE;
+                            #TransitionReasonCode := 3;
+                        END_IF;
+                    ELSIF #StableTimer.Q THEN
+                        #StateInternal := 3;
+                        #LastStableFrequencyHz := #FrequencyCommandInternal;
+                        #TransitionReasonCode := 4;
+                    END_IF;
+                END_IF;
+
+            3: // Q3: conserva la frecuencia estable y filtra variaciones pequenas.
+                IF #ExitLowTimer.Q THEN
+                    #StateInternal := 2;
+                    #TransitionReasonCode := 2;
+                ELSIF #TargetDifferenceHz > #FrequencyTargetToleranceHz THEN
+                    #StateInternal := 2;
+                    #TransitionReasonCode := 3;
+                ELSE
+                    #FrequencyCommandInternal := #LastStableFrequencyHz;
+                END_IF;
+
+            4: // Q4: corriente alta; aumentar Hz para reducir la corriente.
+                IF #Q4RecoveryTimer.Q THEN
+                    #StateInternal := 2;
+                    #TransitionReasonCode := 7;
+                ELSIF #CanAdjust THEN
+                    #FrequencyCommandInternal := #FrequencyCommandInternal + #StepQ4Hz;
+                    #WaitForObservation := TRUE;
+                    #TransitionReasonCode := 5;
+                END_IF;
+
+            5: // Q5: sobrecarga severa; recuperar hacia Q4 antes de volver a Q2.
+                IF #Q5ExitTimer.Q THEN
+                    #StateInternal := 4;
+                    #TransitionReasonCode := 7;
+                ELSIF #CanAdjust THEN
+                    #FrequencyCommandInternal := #FrequencyCommandInternal + #StepQ5Hz;
+                    #WaitForObservation := TRUE;
+                    #TransitionReasonCode := 6;
+                END_IF;
+
+            ELSE
+                #StateInternal := 0;
+        END_CASE;
+    END_IF;
+
+    IF #FrequencyCommandInternal < #FrequencyMinHz THEN
+        #FrequencyCommandInternal := #FrequencyMinHz;
+    ELSIF #FrequencyCommandInternal > #FrequencyMaxHz THEN
+        #FrequencyCommandInternal := #FrequencyMaxHz;
+    END_IF;
+
+    #FrequencyCommandHz := #FrequencyCommandInternal;
+    #StateCode := #StateInternal;
+    #IsStable := #StateInternal = 3;
+    #IsTargetSearchActive := #StateInternal = 2;
+    #IsRecoveryActive := (#StateInternal = 1) OR
+                         (#StateInternal = 4) OR
+                         (#StateInternal = 5);
+
+    #PreviousEnableAuto := #EnableAuto;
+    #PreviousResetRequest := #ResetRequest;
+END_FUNCTION_BLOCK
