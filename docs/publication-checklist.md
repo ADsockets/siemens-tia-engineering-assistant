@@ -2,26 +2,26 @@
 
 ## Contenido
 
-- [ ] El README explica propósito, alcance, límites y compatibilidad.
-- [ ] Los ejemplos son sintéticos y no contienen nombres de clientes o plantas.
-- [ ] Las referencias apuntan a documentación oficial o tienen licencia compatible.
-- [ ] V21 no se presenta como compatible.
+- [x] El README explica propósito, alcance, límites y compatibilidad.
+- [x] Los diagramas actuales son ilustrativos y no contienen nombres de clientes o plantas; se revisó también el archivo SCL retirado del historial.
+- [x] Las referencias apuntan a documentación oficial y no se incluyen copias documentales de terceros.
+- [x] V21 no se presenta como compatible.
 
 ## Privacidad y seguridad
 
-- [ ] No hay proyectos `.ap*`, `.zap*`, `.als*` ni exportaciones TIA reales.
-- [ ] No hay DLL, EXE, instaladores, certificados, tokens ni archivos `.env`.
-- [ ] No hay rutas absolutas personales, IP privadas, nombres de usuario o credenciales.
-- [ ] No se redistribuye contenido del Help Viewer ni documentación propietaria.
-- [ ] `SECURITY.md` describe el reporte responsable.
+- [x] No se encontraron proyectos `.ap*`, `.zap*`, `.als*` ni exportaciones TIA reales.
+- [x] No se encontraron DLL, EXE, instaladores binarios, certificados, tokens ni archivos `.env`.
+- [x] No se encontraron rutas personales, IP privadas ni credenciales; se conservan autor y correo GitHub noreply en commits.
+- [x] No se encontró contenido del Help Viewer ni documentación propietaria redistribuida.
+- [x] `SECURITY.md` describe el reporte responsable.
 
 ## Git y release
 
-- [ ] El `git diff` fue revisado manualmente.
-- [ ] El árbol de trabajo no contiene archivos no rastreados inesperados.
-- [ ] `main` está protegido en GitHub.
-- [ ] El archivo `LICENSE` contiene la licencia MIT aprobada.
-- [ ] La etiqueta de versión y el changelog están actualizados.
+- [x] El `git diff` fue revisado manualmente.
+- [x] El árbol de trabajo no contiene archivos no rastreados inesperados.
+- [ ] Recomendación de mantenimiento: definir protección de `main`; esta release no cambia la política de ramas.
+- [x] `LICENSE` contiene la licencia MIT aprobada, también dentro del paquete instalable.
+- [x] El changelog y los metadatos identifican 1.0.0; las notas de la release verifican la etiqueta publicada.
 
 ## Validación
 
@@ -32,3 +32,5 @@ powershell -ExecutionPolicy Bypass -File .\tests\validate-public-repo.ps1
 ```
 
 El detector es una barrera adicional, no un sustituto de la revisión humana.
+
+La evidencia y límites de 1.0.0 están en [release-1.0.0.md](release-1.0.0.md). Las notas de GitHub Release identifican el commit y los resultados finales.

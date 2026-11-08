@@ -1,5 +1,5 @@
 interface:
-  display_name: "Siemens TIA Engineering"
+  display_name: "Siemens TIA Engineering Assistant"
   short_description: "Aclara TIA y genera SCL o LAD validado"
   default_prompt: "Usa $siemens-tia-engineering-assistant para analizar este proyecto Siemens y elegir SCL o LAD antes de generar código."
 
